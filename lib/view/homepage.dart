@@ -1,5 +1,8 @@
-import 'package:currency_exchange/exchange.dart';
 import 'package:flutter/material.dart';
+
+import 'package:currency_exchange/model/currency_pair.dart';
+import 'package:currency_exchange/view/widget.dart';
+
 import 'package:currency_picker/currency_picker.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -13,29 +16,28 @@ class CurrencyExchangeScreen extends StatefulWidget {
 
 class _CurrencyExchangeScreenState extends State<CurrencyExchangeScreen> {
   final Color appColor = const Color(0xFF6C63FF);
-  ExchangeCurrency exchangeCurrency = ExchangeCurrency();
   bool isLoading  = false;
+
+  CurrencyPair currencyPair = CurrencyPair(
+    baseCurrency: usd, 
+    quoteCurrency: usd, 
+    exchangeRate: 1.0
+  );
+
+  double input = 0.0;
+  double exchangeResult = 0.0;
+  TextEditingController controller  = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text(
-          'Currency Exchange',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 24,
-          )
-        ),
-        centerTitle: true,
-        elevation: 0.0,
-        backgroundColor: Colors.white,
-      ),
+      appBar: appBarContainer(),
 
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal:25.0, vertical: 20),
         children: [
+
           Padding(
             padding: const EdgeInsets.only(right: 10.0, left: 10.0, top:10.0, bottom: 50),
             child: SvgPicture.asset('assets/image.svg', height: 180,),
@@ -44,7 +46,7 @@ class _CurrencyExchangeScreenState extends State<CurrencyExchangeScreen> {
           Center(
             child: isLoading? loadingContainer()
             :Text(
-              "1.00000 ${exchangeCurrency.fromCurrencyCode} = ${exchangeCurrency.rate.toStringAsPrecision(5)} ${exchangeCurrency.toCurrencyCode}",
+              currencyPair.toString(),
               style: TextStyle(
                 fontSize: 16,
                 color: appColor ,
@@ -59,7 +61,7 @@ class _CurrencyExchangeScreenState extends State<CurrencyExchangeScreen> {
 
           Row(
             children: [
-              currencySymbolContainer(exchangeCurrency.fromCurrencySymbol),
+              currencySymbolContainer(currencyPair.baseCurrency.symbol),
 
               InkWell(
                 onTap: (){
@@ -70,14 +72,15 @@ class _CurrencyExchangeScreenState extends State<CurrencyExchangeScreen> {
                     showCurrencyName: true,
                     showCurrencyCode: true,
                     onSelect: (Currency currency) async{
-                        await exchangeCurrency.setFromCurrency(currency.code, currency.symbol);
+                        await currencyPair.setBaseCurrency(currency);
                         setState(() {});
-                        await exchangeCurrency.setRate();
+                        await currencyPair.setExchangeRate();
+                        exchangeResult = input * currencyPair.exchangeRate;
                         setState(() { isLoading = false; });
                     },
                   );
                 },
-                child: currencyCodeContainer(exchangeCurrency.fromCurrencyCode)
+                child: currencyCodeContainer(currencyPair.baseCurrency.code)
               ),
 
               const SizedBox(width: 20,),
@@ -85,6 +88,7 @@ class _CurrencyExchangeScreenState extends State<CurrencyExchangeScreen> {
               Expanded(
                 child: appContainer(
                   child: TextField(
+                    controller: controller,
                     style: TextStyle(fontSize: 30,color: appColor),
                     keyboardType: TextInputType.number,
 
@@ -97,8 +101,8 @@ class _CurrencyExchangeScreenState extends State<CurrencyExchangeScreen> {
                   
                     onChanged: (value){
                       setState(() {
-                        double val = value == '' ? 0: double.parse(value);
-                        exchangeCurrency.setInput(val);
+                        input = value == '' ? 0: double.parse(value);
+                        exchangeResult = input * currencyPair.exchangeRate;
                       });
                     },
                   ),
@@ -117,7 +121,7 @@ class _CurrencyExchangeScreenState extends State<CurrencyExchangeScreen> {
 
           Row(
             children: [
-              currencySymbolContainer(exchangeCurrency.toCurrencySymbol),
+              currencySymbolContainer(currencyPair.quoteCurrency.symbol),
               InkWell(
                 onTap: () async{
                   setState(() { isLoading = true; });
@@ -127,16 +131,16 @@ class _CurrencyExchangeScreenState extends State<CurrencyExchangeScreen> {
                     showCurrencyName: true,
                     showCurrencyCode: true,
                     onSelect: (Currency currency) async{
-                      await exchangeCurrency.setToCurrency(currency.code, currency.symbol);
+                      await currencyPair.setQuoteCurrency(currency);
                       setState(() {});
-                      await exchangeCurrency.setRate();
+                      await currencyPair.setExchangeRate();
+                      exchangeResult = input * currencyPair.exchangeRate;
                       setState(() { isLoading = false; });
                     },
                   );
-                
                   
                 },
-                child: currencyCodeContainer(exchangeCurrency.toCurrencyCode)
+                child: currencyCodeContainer(currencyPair.quoteCurrency.code)
               ),
               const SizedBox(width: 20,),
               Expanded(
@@ -144,7 +148,7 @@ class _CurrencyExchangeScreenState extends State<CurrencyExchangeScreen> {
                   child: Center(
                     child: isLoading? loadingContainer()
                     :Text(
-                      exchangeCurrency.result.toStringAsPrecision(3),
+                      exchangeResult.toStringAsPrecision(5),
                       style: TextStyle( fontSize: 30, color: appColor),
                     ),
                   ),
@@ -154,66 +158,6 @@ class _CurrencyExchangeScreenState extends State<CurrencyExchangeScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget textContainer(String text){
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20.0),
-      child: Text(
-        text,
-        style: const TextStyle(fontSize: 24,),
-      ),
-    );
-  }
-
-  Widget currencyCodeContainer(code){
-    return appContainer(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical:10.0),
-        child: Row(
-          children: [
-            Text(
-              code,
-              style: const TextStyle(fontSize: 24),
-            ),
-            const SizedBox(width: 5),
-            const Icon(Icons.arrow_drop_down)
-          ],
-        ),
-      ),
-      dropdown: true
-    );
-  }
-
-  Widget currencySymbolContainer(String symbol){
-    return appContainer(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 25, vertical:10.0),
-        child: Text(
-          symbol,
-          style: TextStyle(fontSize: 35,color: appColor),
-        ),
-      ),
-    );
-}
-
-  Widget loadingContainer(){
-    return SizedBox(
-      width: 20.0, height: 20.0,
-      child: CircularProgressIndicator(color: appColor)
-    );
-  }
- 
-  Widget appContainer({required Widget child, bool dropdown = false}){
-    return Container(
-      height: 60.0,
-      decoration: BoxDecoration(
-        color: dropdown ? Colors.white : const Color(0xFF6C63FF).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(10.0),
-        border: Border.all(style: BorderStyle.solid, color: Colors.white, width: 0.5),
-      ),
-      child: child,
     );
   }
 }

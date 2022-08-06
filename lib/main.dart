@@ -1,4 +1,4 @@
-import 'package:currency_exchange/currency_exchange.dart';
+import 'package:currency_exchange/view/homepage.dart';
 import 'package:flutter/material.dart';
 
 void main() {
